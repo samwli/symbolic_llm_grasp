@@ -4,12 +4,14 @@ import cv2
 import networkx as nx
 import pickle
 import os
+from scipy.spatial import distance
+from scipy import stats
 
-def distance(point1, point2):
+def point_distance(point1, point2):
     return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
 def find_apex(points):
-    side_lengths = [distance(points[i], points[(i+1)%3]) for i in range(3)]
+    side_lengths = [point_distance(points[i], points[(i+1)%3]) for i in range(3)]
     side_differences = [abs(side_lengths[i] - (side_lengths[(i+1)%3] + side_lengths[(i+2)%3]) / 2) for i in range(3)]
     apex_index = np.argmax(side_differences)-1
     
@@ -28,11 +30,11 @@ def get_triangle(points):
     apex_index, side_lengths = find_apex(points)
     apex = points[apex_index]
     base_points = np.delete(points, apex_index, axis=0)
-    distances_to_apex = [distance(apex, base_point) for base_point in base_points]
-    farther_base_index = np.argmax(distances_to_apex)
+    point_distances_to_apex = [point_distance(apex, base_point) for base_point in base_points]
+    farther_base_index = np.argmax(point_distances_to_apex)
     farther_base_point = base_points[farther_base_index]
     closer_base_point = base_points[1 - farther_base_index]
-    new_base_point = extend_base(apex, closer_base_point, distances_to_apex[farther_base_index])
+    new_base_point = extend_base(apex, closer_base_point, point_distances_to_apex[farther_base_index])
     
     return np.array([farther_base_point, new_base_point, apex])
 
@@ -96,7 +98,7 @@ def approximate_shape(hull, convex_hull):
         (x, y), radius = cv2.minEnclosingCircle(hull)
         return "circle", ((x, y), radius)
     
-    epsilon = 0.05 * cv2.arcLength(hull, True)
+    epsilon = 0.03 * cv2.arcLength(hull, True)
     approx = cv2.approxPolyDP(hull, epsilon, True)
     
     if len(approx) == 3:
@@ -132,7 +134,7 @@ def draw_shapes_on_image(img, hulls, output_dir, obj):
             cv2.polylines(img, [np.array(points, np.int32)], True, (255, 255, 0), 2)
     cv2.imwrite(output_dir+f'/{obj}_graph_shapes.png', img)
 
-def distance(p1, p2):
+def point_distance(p1, p2):
     return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
 
 def shared_boundaries(hull1, hull2):
@@ -140,8 +142,8 @@ def shared_boundaries(hull1, hull2):
         for s2 in hull2.simplices:
             start1, end1 = hull1.points[s1[0]], hull1.points[s1[1]]
             start2, end2 = hull2.points[s2[0]], hull2.points[s2[1]]
-            if (distance(start1, start2) < 1 and distance(end1, end2) < 1) or (distance(start1, end2) < 1 and distance(end1, start2) < 1):
-                return (distance(start1, end1), (start1[0], start1[1]), (end1[0], end1[1]))
+            if (point_distance(start1, start2) < 1 and point_distance(end1, end2) < 1) or (point_distance(start1, end2) < 1 and point_distance(end1, start2) < 1):
+                return (point_distance(start1, end1), (start1[0], start1[1]), (end1[0], end1[1]))
     return None
 
 def find_node_name(nodes, number):
@@ -151,21 +153,59 @@ def find_node_name(nodes, number):
             return node
     return None
 
-def get_height(hull, depth_img):
-    mask = np.zeros(depth_img.shape[:2], dtype=np.uint8)
+def get_height(hull, height_img, binary_mask):
+    height_img = 100*height_img/height_img.max()
+    mask = np.zeros(height_img.shape[:2], dtype=np.uint8)
     for simplex in hull.simplices:
         pt1 = tuple(hull.points[simplex[0]].astype(int))
         pt2 = tuple(hull.points[simplex[1]].astype(int))
         cv2.line(mask, pt1, pt2, 255, 1)
     hull_points = np.array([hull.points[vertex].astype(int) for vertex in hull.vertices])
     cv2.fillPoly(mask, [hull_points], 1)
-    img = depth_img[:,:,0]
     # TODO: adjust height threshold for real world
-    condition = (mask == 1) & (img > 1)
-    selected_depth_values = img[condition]
+    condition = (mask == 1) & (binary_mask == 1) & (height_img > 0)
+    selected_depth_values = height_img[condition]
     average_depth = np.mean(selected_depth_values)
     
     return average_depth
+
+def closest_color(pixel, web_colors_np):
+    distances = {k: distance.euclidean(pixel, v) for k, v in web_colors_np.items()}
+    return min(distances, key=distances.get)
+
+def bucket_to_web_colors(image, web_colors):
+    web_colors_np = {k: np.array(v) for k, v in web_colors.items()}
+    bucketed_image = np.zeros_like(image)
+    for i in range(image.shape[0]):
+        closest = closest_color(image[i], web_colors_np)
+        bucketed_image[i] = web_colors_np[closest]
+    
+    return bucketed_image
+
+def find_most_common_color(image):
+    web_colors = {
+        "White": (255, 255, 255),
+        "Silver": (192, 192, 192),
+        "Gray": (128, 128, 128),
+        "Black": (0, 0, 0),
+        "Red": (255, 0, 0),
+        "Maroon": (128, 0, 0),
+        "Yellow": (255, 255, 0),
+        "Olive": (128, 128, 0),
+        "Lime": (0, 255, 0),
+        "Green": (0, 128, 0),
+        "Aqua": (0, 255, 255),
+        "Teal": (0, 128, 128),
+        "Blue": (0, 0, 255),
+        "Navy": (0, 0, 128),
+        "Fuchsia": (255, 0, 255),
+        "Purple": (128, 0, 128)
+    }
+    bucketed_image = bucket_to_web_colors(image, web_colors)
+    mode_color, count = stats.mode(bucketed_image, axis=0)
+    inverted_web_colors = {v: k for k, v in web_colors.items()}
+    color_name = inverted_web_colors[tuple(mode_color[0])]
+    return color_name
 
 def get_color(hull, rgb_img, binary_mask):
     hull_mask = np.zeros(rgb_img.shape[:2], dtype=np.uint8)
@@ -177,15 +217,14 @@ def get_color(hull, rgb_img, binary_mask):
     cv2.fillPoly(hull_mask, [hull_points], 1)
     condition = (hull_mask == 1) & (binary_mask == 1)
     selected_rgb_values = rgb_img[condition]
-    # bucket rgb values into colors
-    # get most common color
-    
-    return 'silver' 
+    color = find_most_common_color(selected_rgb_values)
+    return color
+
 
 def create_graph(output_dir, obj_data_path, object_name, mode):
     with open(os.path.join(output_dir, f'{object_name}_2d_hulls.pkl'), 'rb') as f:
         hulls = pickle.load(f)
-    height_img = cv2.imread(obj_data_path+'_height.png')
+    height_img = np.load(obj_data_path+'_height.npy')
     rgb_img = cv2.imread(obj_data_path+'_rgb.png')
     binary_mask = np.load(obj_data_path+'_mask.npy')
     G = nx.Graph()
@@ -198,12 +237,12 @@ def create_graph(output_dir, obj_data_path, object_name, mode):
         cx, cy = centroidPoly(hull_points)
         if shape == 'isosceles triangle':
             angle = calculate_triangle_angle(obj[0], obj[1], obj[2])
-            base = distance(obj[0], obj[1])
-            leg = distance(obj[0], obj[2])
+            base = point_distance(obj[0], obj[1])
+            leg = point_distance(obj[0], obj[2])
             aspect_ratio = leg / base if base != 0 else 0
             color = get_color(hull, rgb_img, binary_mask)
             if mode == '3d':
-                height = get_height(hull, height_img)
+                height = get_height(hull, height_img, binary_mask)
                 G.add_node('tri{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), height=int(height), color=color)
             else:
                 G.add_node('tri{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), color=color)
@@ -218,7 +257,7 @@ def create_graph(output_dir, obj_data_path, object_name, mode):
                 aspect_ratio = width / height if height != 0 else 0
             color = get_color(hull, rgb_img, binary_mask)
             if mode == '3d':
-                height = get_height(hull, height_img)
+                height = get_height(hull, height_img, binary_mask)
                 G.add_node('rect{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), height=int(height), color=color)
             else:
                 G.add_node('rect{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), color=color)
@@ -228,14 +267,14 @@ def create_graph(output_dir, obj_data_path, object_name, mode):
             aspect_ratio = axes[1] / axes[0] if axes[0] != 0 else 0
             color = get_color(hull, rgb_img, binary_mask)
             if mode == '3d':
-                height = get_height(hull, height_img)
+                height = get_height(hull, height_img, binary_mask)
                 G.add_node('ellip{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), height=int(height), color=color)
             else:
                 G.add_node('ellip{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), aspect_ratio = np.round(aspect_ratio, 3), angle = int(angle), color=color)
         else:
             color = get_color(hull, rgb_img, binary_mask)
             if mode == '3d':
-                height = get_height(hull, height_img)
+                height = get_height(hull, height_img, binary_mask)
                 G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), height=int(height), color=color)
             else:
                 G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), color=color)

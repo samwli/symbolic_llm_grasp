@@ -1,0 +1,6 @@
+Response:
+rect0: 0.8
+tri1: 0.2
+Likelihoods:
+[0.800000011920929, 0.20000000298023224]
+Predicted Node: rect0, Centroid: (538, 193)

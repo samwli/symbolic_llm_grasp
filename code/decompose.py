@@ -17,7 +17,7 @@ def draw_hulls(img, hulls, output_dir, obj):
     img.save(output_dir+f'/{obj}_2d_hulls.png')   
 
 
-def decompose(output_dir, obj_data_path, obj, threshold = 0.08):
+def decompose(output_dir, obj_data_path, obj, mode, threshold = 0.08):
     mesh = trimesh.load(output_dir+f'/{obj}_solid_mesh.obj', force="mesh")
     coacd.set_log_level("error")
     mesh = coacd.Mesh(mesh.vertices, mesh.faces)
@@ -37,14 +37,13 @@ def decompose(output_dir, obj_data_path, obj, threshold = 0.08):
     scene.export(output_dir+f'/{obj}_convex_parts.obj')
 
     vs_list = [vs for vs, fs in result]
-    filtered_vs_list = [vs[:, :2] for vs in vs_list]
-    
+    filtered_vs_list = [vs[:, :2] for vs in vs_list] if mode == '3d' else [vs[vs[:, 0] < -0.1][:,1:] for vs in vs_list]
     rotate_matrix = np.array([[0, 1], [-1, 0]])
     flip_matrix = np.array([[-1, 0], [0, 1]])
     
     hulls = []
     for array_2d in filtered_vs_list:
-        if len(array_2d) > 2: 
+        if len(array_2d) > 2:
             array_2d = np.dot(array_2d, rotate_matrix) 
             array_2d = np.dot(array_2d, flip_matrix)  
             hull = ConvexHull(array_2d)
@@ -56,4 +55,6 @@ def decompose(output_dir, obj_data_path, obj, threshold = 0.08):
 
     rgb_image = Image.open(obj_data_path+'_rgb.png')
     draw_hulls(rgb_image, hulls, output_dir, obj)
+    
+    return len(hulls)
     

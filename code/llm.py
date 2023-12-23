@@ -6,7 +6,7 @@ import ast
 import numpy as np
 import torch
 import torch.nn.functional as F
-from keys import API_KEY, API_ORG
+from code.keys import API_KEY, API_ORG
 
 # openai.api_base = "http://localhost:23002/v1"
 def callOpenAI(api_key, model, query, organization=None):
@@ -55,8 +55,7 @@ def parse_graph_nodes(graph_text):
     return node_data
 
 def run_llm(output_dir, input_obj, mode): 
-    # graph_data = read_graph_from_file(output_dir+f'/{input_obj}_graph.txt')
-    graph_data = read_graph_from_file(f"sim_data/3d_data/test_graph/{input_obj}.txt")
+    graph_data = read_graph_from_file(output_dir+f'/{input_obj}_graph.txt')
     give_object = True
     query = "Given the decomposition of object "
     if give_object:
@@ -94,3 +93,5 @@ def run_llm(output_dir, input_obj, mode):
         file.write("Response:\n" + response)
         file.write("\nLikelihoods:\n" + str(likelihoods.tolist()))
         file.write(f"\nPredicted Node: {most_likely_node}, Centroid: {center}\n")
+        
+    return center

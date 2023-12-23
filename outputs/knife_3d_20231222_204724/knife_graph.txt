@@ -1,0 +1,5 @@
+Nodes of the graph:
+[('tri0', {'shape': 'isosceles triangle', 'centroid': (322, 281), 'area': 9249, 'aspect_ratio': 7.554, 'angle': 247, 'height': 46, 'color': 'Silver'}), ('rect1', {'shape': 'rectangle', 'centroid': (518, 200), 'area': 6908, 'aspect_ratio': 5.656, 'angle': 156, 'height': 92, 'color': 'Black'})]
+
+Edges of the graph:
+[('tri0', 'rect1', {'length': 38})]
