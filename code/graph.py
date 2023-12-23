@@ -204,7 +204,8 @@ def find_most_common_color(image):
     bucketed_image = bucket_to_web_colors(image, web_colors)
     mode_color, count = stats.mode(bucketed_image, axis=0)
     inverted_web_colors = {v: k for k, v in web_colors.items()}
-    color_name = inverted_web_colors[tuple(mode_color[0])]
+    color_key = tuple(mode_color) if mode_color.ndim == 1 else tuple(mode_color[0])
+    color_name = inverted_web_colors[color_key]
     return color_name
 
 def get_color(hull, rgb_img, binary_mask):

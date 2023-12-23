@@ -1,7 +1,6 @@
 import openai
 import re
 import cv2
-import pickle
 import ast 
 import numpy as np
 import torch
