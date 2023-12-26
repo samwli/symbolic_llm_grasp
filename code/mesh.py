@@ -60,6 +60,6 @@ def create_solid_mesh(obj_data_path, mesh_file, mode):
     elif mode == '2d':
         # process real world mask if needed
         solid_mesh = voxel.ops.matrix_to_marching_cubes([mask], pitch=1)
-    solid_mesh.export(mesh_file)
+    # solid_mesh.export(mesh_file)
     return solid_mesh
 
