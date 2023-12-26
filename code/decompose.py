@@ -17,8 +17,8 @@ def draw_hulls(img, hulls, output_dir, obj):
     img.save(output_dir+f'/{obj}_2d_hulls.png')   
 
 
-def decompose(output_dir, obj_data_path, obj, mode, threshold = 0.08):
-    mesh = trimesh.load(output_dir+f'/{obj}_solid_mesh.obj', force="mesh")
+def decompose(mesh, output_dir, mode, threshold = 0.08):
+    # mesh = trimesh.load(output_dir+f'/{obj}_solid_mesh.obj', force="mesh")
     coacd.set_log_level("error")
     mesh = coacd.Mesh(mesh.vertices, mesh.faces)
     result = coacd.run_coacd(
@@ -34,6 +34,8 @@ def decompose(output_dir, obj_data_path, obj, mode, threshold = 0.08):
     for p in mesh_parts:
         p.visual.vertex_colors[:, :3] = (np.random.rand(3) * 255).astype(np.uint8)
         scene.add_geometry(p)
+        
+    obj = output_dir.split('/')[1].split('_'+mode)[0]
     scene.export(output_dir+f'/{obj}_convex_parts.obj')
 
     vs_list = [vs for vs, fs in result]
@@ -49,12 +51,13 @@ def decompose(output_dir, obj_data_path, obj, mode, threshold = 0.08):
             hull = ConvexHull(array_2d)
             hulls.append(hull)
 
-    with open(output_dir+f'/{obj}_2d_hulls.pkl', 'wb') as f:
-        pickle.dump(hulls, f)
+    # with open(output_dir+f'/{obj}_2d_hulls.pkl', 'wb') as f:
+        # pickle.dump(hulls, f)
     
 
-    rgb_image = Image.open(obj_data_path+'_rgb.png')
-    draw_hulls(rgb_image, hulls, output_dir, obj)
+    # rgb_image = Image.open(obj_data_path+'_rgb.png')
+    # draw_hulls(rgb_image, hulls, output_dir, obj)
     
-    return len(hulls)
+    return hulls
     
+# decompose('outputs/headphones_3d_20231224_194646', 'data/headphones', 'headphones', '3d', 0.2)

@@ -110,7 +110,7 @@ def approximate_shape(hull, convex_hull):
         ellipse = cv2.fitEllipse(hull)
         return "ellipse", ellipse
 
-def draw_shapes_on_image(img, hulls, output_dir, obj):
+def draw_shapes_on_image(img, hulls):
     if len(img.shape) == 2 or img.shape[2] == 1:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -132,7 +132,8 @@ def draw_shapes_on_image(img, hulls, output_dir, obj):
         else:  # isosceles triangle
             points = [tuple(pt) for pt in approx.squeeze()]
             cv2.polylines(img, [np.array(points, np.int32)], True, (255, 255, 0), 2)
-    cv2.imwrite(output_dir+f'/{obj}_graph_shapes.png', img)
+    # cv2.imwrite(output_dir+f'/{obj}_graph_shapes.png', img)
+    return img
 
 def point_distance(p1, p2):
     return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
@@ -221,13 +222,58 @@ def get_color(hull, rgb_img, binary_mask):
     color = find_most_common_color(selected_rgb_values)
     return color
 
+def load_height(base_path):
+    if os.path.exists(base_path + '.npy'):
+        data = np.load(base_path + '.npy')
+    elif os.path.exists(base_path + '.png'):
+        image = cv2.imread(base_path + '.png')
+        data = np.array(image)
+    else:
+        raise ValueError("File not found or unsupported file format (npy or png)")
+    
+    if len(data.shape) > 2:
+        data = data[:, :, 0]
+    data = cv2.medianBlur(data, 5)
+    data = cv2.GaussianBlur(data, (5, 5), 0)
+    
+    return data
 
-def create_graph(output_dir, obj_data_path, object_name, mode):
-    with open(os.path.join(output_dir, f'{object_name}_2d_hulls.pkl'), 'rb') as f:
-        hulls = pickle.load(f)
-    height_img = np.load(obj_data_path+'_height.npy')
-    rgb_img = cv2.imread(obj_data_path+'_rgb.png')
-    binary_mask = np.load(obj_data_path+'_mask.npy')
+def load_mask(base_path):
+    if os.path.exists(base_path + '.npy'):
+        mask = np.load(base_path + '.npy')
+    elif os.path.exists(base_path + '.png'):
+        mask = cv2.imread(base_path + '.png')
+        mask = np.array(mask)
+    else:
+        raise ValueError("File not found or unsupported file format (npy or png)")
+    
+    if len(mask.shape) > 2: 
+        mask = np.any(mask > 0, axis=2).astype(np.uint8)
+    mask = np.where(mask > 0, 1, 0).astype(np.uint8)
+    kernel = np.ones((5,5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    largest_contour = max(contours, key=cv2.contourArea)
+    mask_largest_contour = np.zeros_like(mask)
+    cv2.drawContours(mask_largest_contour, [largest_contour], -1, color=255, thickness=cv2.FILLED)
+    return np.where(mask_largest_contour > 0, 1, 0)
+
+def create_graph(hulls, output_dir, obj_data_path, mode):
+    # with open(os.path.join(output_dir, f'{object_name}_2d_hulls.pkl'), 'rb') as f:
+    #     hulls = pickle.load(f)
+    object_name = output_dir.split('/')[1].split('_'+mode)[0]
+    height_img = load_height(obj_data_path+'_depth')
+    
+    if os.path.exists(obj_data_path+'_rgb.npy'):
+        rgb_img = np.load(obj_data_path+'_rgb.npy')
+    elif os.path.exists(obj_data_path+'_rgb.png'):
+        rgb_img = cv2.imread(obj_data_path+'_rgb.png')
+    else:
+        raise FileNotFoundError("Neither NPY nor PNG file found for the given path")
+    
+    binary_mask = load_mask(obj_data_path+'_mask')
+    
     G = nx.Graph()
     for idx, hull in enumerate(hulls):
         if hull.volume < 500:
@@ -294,15 +340,21 @@ def create_graph(output_dir, obj_data_path, object_name, mode):
                 # e1, e2 = int(end_vertex[0]), int(end_vertex[1])
                 G.add_edge(find_node_name(node_names, i), find_node_name(node_names, j), length=int(length)) #, start_vertex=(s1, s2), end_vertex=(e1, e2))
                 
-    draw_shapes_on_image(rgb_img, hulls, output_dir, object_name)
-    with open(output_dir+f'/{object_name}_graph.txt', 'w') as file:
-        file.write("Nodes of the graph:\n")
+    shapes = draw_shapes_on_image(rgb_img, hulls)
+    with open(output_dir + f'/{object_name}_graph.txt', 'w') as file:
         nodes = G.nodes(data=True)
-        file.write(str(nodes))
-        file.write("\n\n")
-        file.write("Edges of the graph:\n")
         edges = G.edges(data=True)
-        file.write(str(edges))
+        output_string = (
+            "Nodes of the graph:\n" +
+            str(nodes) +
+            "\n\n" +
+            "Edges of the graph:\n" +
+            str(edges)
+        )
+        file.write(output_string)
+    return output_string, shapes
+
+    
 
 
 

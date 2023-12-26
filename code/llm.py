@@ -5,6 +5,7 @@ import ast
 import numpy as np
 import torch
 import torch.nn.functional as F
+import os
 from code.keys import API_KEY, API_ORG
 
 # openai.api_base = "http://localhost:23002/v1"
@@ -53,8 +54,22 @@ def parse_graph_nodes(graph_text):
 
     return node_data
 
-def run_llm(output_dir, input_obj, mode): 
-    graph_data = read_graph_from_file(output_dir+f'/{input_obj}_graph.txt')
+def load_height(base_path):
+    if os.path.exists(base_path + '.npy'):
+        data = np.load(base_path + '.npy')
+    elif os.path.exists(base_path + '.png'):
+        image = cv2.imread(base_path + '.png')
+        data = np.array(image)
+    else:
+        raise ValueError("File not found or unsupported file format (npy or png)")
+    
+    if len(data.shape) > 2:
+        data = data[:, :, 0]
+    return data
+
+def run_llm(graph_data, img, output_dir, obj_data_path, mode): 
+    # graph_data = read_graph_from_file(output_dir+f'/{input_obj}_graph.txt')
+    input_obj = output_dir.split('/')[1].split('_'+mode)[0]
     give_object = True
     query = "Given the decomposition of object "
     if give_object:
@@ -79,12 +94,16 @@ def run_llm(output_dir, input_obj, mode):
     most_likely_index = torch.argmax(likelihoods)
     node_data = parse_graph_nodes(graph_data)
     vis_file_path = output_dir+f"/llm_{input_obj}_grasp.png"
-    img = cv2.imread(output_dir+f"/{input_obj}_graph_shapes.png")
+    # img = cv2.imread(output_dir+f"/{input_obj}_graph_shapes.png")
     most_likely_node = list(node_data.keys())[most_likely_index.item()]
     center = node_data[most_likely_node]
     cv2.circle(img, center, radius=5, color=(0, 0, 255), thickness=-1)
     cv2.imwrite(vis_file_path, img)
 
+    if mode == '3d':
+        height_array = load_height(obj_data_path+'_depth')
+        center = np.append(center, height_array[center[1], center[0]])
+    
     print(f"Predicted Node: {most_likely_node}, Centroid: {center}")
 
     output_file_path = output_dir+f"/llm_{input_obj}_results.txt"

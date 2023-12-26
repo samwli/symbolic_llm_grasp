@@ -14,29 +14,28 @@ def create_output_directory(obj, mode):
         os.makedirs(output_dir)
     return output_dir
 
-def run_pipeline(obj, data_dir, mode):
+def run_pipeline(obj, data_dir, mode, threshold):
     obj_data_path = os.path.join(data_dir, obj)
     output_dir = create_output_directory(obj, mode)
+
     mesh_file = os.path.join(output_dir, f'{obj}_solid_mesh.obj')
-    create_solid_mesh(obj_data_path, mesh_file, mode)
-    threshold = 0.1 if mode == '3d' else 0.07
-    num_hulls = decompose(output_dir, obj_data_path, obj, mode, threshold)
-    while num_hulls < 2 and threshold > 0.01:
-        threshold = max(threshold - 0.02, 0.01)
-        num_hulls = decompose(output_dir, obj_data_path, obj, mode, threshold)
-    create_graph(output_dir, obj_data_path, obj, mode)
-    grasp_point = np.array(run_llm(output_dir, obj, mode))
-    if mode == '3d':
-        height_array = np.load(obj_data_path+'_height.npy')
-        grasp_point = np.append(grasp_point, height_array[grasp_point[1], grasp_point[0]])
-        print(f"3D grasp point: {grasp_point}")
+    mesh = create_solid_mesh(obj_data_path, mesh_file, mode)
+    if not threshold:
+        threshold = 0.2 if mode == '3d' else 0.15
+    hulls = decompose(mesh, output_dir, mode, threshold)
+    while len(hulls) < 2 and threshold > 0.01:
+        threshold = max(threshold - 0.05, 0.01)
+        hulls = decompose(mesh, output_dir, mode, threshold)
+    graph, shapes = create_graph(hulls, output_dir, obj_data_path, mode)
+    grasp_point = np.array(run_llm(graph, shapes, output_dir, obj_data_path, mode))
     # TODO: grasp at this point
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run the 3D mesh pipeline')
-    parser.add_argument('--obj', type=str, default='knife', help='Input object identifier')
+    parser.add_argument('-o', '--obj', type=str, default='knife', help='Input object identifier')
     parser.add_argument('--data_dir', type=str, default='data/', help='Directory where object data is located')
-    parser.add_argument('--mode', type=str, default='3d', help='3d or 2d (use depth or no depth)')
+    parser.add_argument('-m', '--mode', type=str, default='3d', help='3d or 2d (use depth or no depth)')
+    parser.add_argument('-t', '--threshold', type=float, help='Threshold value')
     args = parser.parse_args()
-
-    run_pipeline(args.obj, args.data_dir, args.mode)
+    run_pipeline(args.obj, args.data_dir, args.mode, args.threshold)
+    
