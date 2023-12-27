@@ -11,6 +11,7 @@ Install dependencies:
 
 ```
 conda install -c conda-forge trimesh
+conda install -c conda-forge opencv
 pip install coacd
 pip install openai==0.27.9
 ```

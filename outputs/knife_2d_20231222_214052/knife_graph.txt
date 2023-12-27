@@ -1,5 +1,0 @@
-Nodes of the graph:
-[('rect0', {'shape': 'rectangle', 'centroid': (538, 193), 'area': 4901, 'aspect_ratio': 4.699, 'angle': 157, 'color': 'Black'}), ('tri1', {'shape': 'isosceles triangle', 'centroid': (336, 275), 'area': 10187, 'aspect_ratio': 11.879, 'angle': 248, 'color': 'Silver'})]
-
-Edges of the graph:
-[('rect0', 'tri1', {'length': 26})]

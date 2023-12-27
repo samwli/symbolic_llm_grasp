@@ -68,7 +68,7 @@ def load_height(base_path):
     return data
 
 def run_llm(graph_data, img, output_dir, obj_data_path, mode): 
-    # graph_data = read_graph_from_file(output_dir+f'/{input_obj}_graph.txt')
+    # graph_data = read_graph_from_file('outputs/controller_3d_20231226_152016/controller_graph.txt')
     input_obj = output_dir.split('/')[1].split('_'+mode)[0]
     give_object = True
     query = "Given the decomposition of object "

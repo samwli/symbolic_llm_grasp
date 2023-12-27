@@ -6,6 +6,7 @@ import pickle
 import os
 from scipy.spatial import distance
 from scipy import stats
+from collections import Counter
 
 def point_distance(point1, point2):
     return np.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
@@ -176,12 +177,12 @@ def closest_color(pixel, web_colors_np):
 
 def bucket_to_web_colors(image, web_colors):
     web_colors_np = {k: np.array(v) for k, v in web_colors.items()}
-    bucketed_image = np.zeros_like(image)
+    bucketed_list = []
     for i in range(image.shape[0]):
         closest = closest_color(image[i], web_colors_np)
-        bucketed_image[i] = web_colors_np[closest]
+        bucketed_list.append(closest)
     
-    return bucketed_image
+    return bucketed_list
 
 def find_most_common_color(image):
     web_colors = {
@@ -202,12 +203,10 @@ def find_most_common_color(image):
         "Fuchsia": (255, 0, 255),
         "Purple": (128, 0, 128)
     }
-    bucketed_image = bucket_to_web_colors(image, web_colors)
-    mode_color, count = stats.mode(bucketed_image, axis=0)
-    inverted_web_colors = {v: k for k, v in web_colors.items()}
-    color_key = tuple(mode_color) if mode_color.ndim == 1 else tuple(mode_color[0])
-    color_name = inverted_web_colors[color_key]
-    return color_name
+    bucketed_list = bucket_to_web_colors(image, web_colors)
+    counts = Counter(bucketed_list)
+    most_common = counts.most_common(1)
+    return most_common[0][0] if most_common else None
 
 def get_color(hull, rgb_img, binary_mask):
     hull_mask = np.zeros(rgb_img.shape[:2], dtype=np.uint8)
