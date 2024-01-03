@@ -21,7 +21,7 @@ def run_pipeline(obj, data_dir, mode, threshold):
     mesh_file = os.path.join(output_dir, f'{obj}_solid_mesh.obj')
     mesh = create_solid_mesh(obj_data_path, mesh_file, mode)
     if not threshold:
-        threshold = 0.2 if mode == '3d' else 0.15
+        threshold = 0.15 if mode == '3d' else 0.1
     hulls = decompose(mesh, output_dir, mode, threshold)
     while len(hulls) < 2 and threshold > 0.01:
         threshold = max(threshold - 0.05, 0.01)

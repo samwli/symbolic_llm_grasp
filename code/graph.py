@@ -99,7 +99,7 @@ def approximate_shape(hull, convex_hull):
         (x, y), radius = cv2.minEnclosingCircle(hull)
         return "circle", ((x, y), radius)
     
-    epsilon = 0.03 * cv2.arcLength(hull, True)
+    epsilon = 0.01 * cv2.arcLength(hull, True)
     approx = cv2.approxPolyDP(hull, epsilon, True)
     
     if len(approx) == 3:
@@ -111,7 +111,7 @@ def approximate_shape(hull, convex_hull):
         ellipse = cv2.fitEllipse(hull)
         return "ellipse", ellipse
 
-def draw_shapes_on_image(img, hulls):
+def draw_shapes_on_image(img, hulls, output_dir, object_name):
     if len(img.shape) == 2 or img.shape[2] == 1:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -133,7 +133,7 @@ def draw_shapes_on_image(img, hulls):
         else:  # isosceles triangle
             points = [tuple(pt) for pt in approx.squeeze()]
             cv2.polylines(img, [np.array(points, np.int32)], True, (255, 255, 0), 2)
-    # cv2.imwrite(output_dir+f'/{obj}_graph_shapes.png', img)
+    cv2.imwrite(output_dir+f'/{object_name}_shapes.png', img)   
     return img
 
 def point_distance(p1, p2):
@@ -262,7 +262,8 @@ def create_graph(hulls, output_dir, obj_data_path, mode):
     # with open(os.path.join(output_dir, f'{object_name}_2d_hulls.pkl'), 'rb') as f:
     #     hulls = pickle.load(f)
     object_name = output_dir.split('/')[1].split('_'+mode)[0]
-    height_img = load_height(obj_data_path+'_depth')
+    if mode == '3d':
+        height_img = load_height(obj_data_path+'_depth')
     
     if os.path.exists(obj_data_path+'_rgb.npy'):
         rgb_img = np.load(obj_data_path+'_rgb.npy')
@@ -339,7 +340,7 @@ def create_graph(hulls, output_dir, obj_data_path, mode):
                 # e1, e2 = int(end_vertex[0]), int(end_vertex[1])
                 G.add_edge(find_node_name(node_names, i), find_node_name(node_names, j), length=int(length)) #, start_vertex=(s1, s2), end_vertex=(e1, e2))
                 
-    shapes = draw_shapes_on_image(rgb_img, hulls)
+    shapes = draw_shapes_on_image(rgb_img, hulls, output_dir, object_name)
     with open(output_dir + f'/{object_name}_graph.txt', 'w') as file:
         nodes = G.nodes(data=True)
         edges = G.edges(data=True)

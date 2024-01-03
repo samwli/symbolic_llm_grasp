@@ -36,7 +36,7 @@ def decompose(mesh, output_dir, mode, threshold = 0.08):
         scene.add_geometry(p)
         
     obj = output_dir.split('/')[1].split('_'+mode)[0]
-    # scene.export(output_dir+f'/{obj}_convex_parts.obj')
+    scene.export(output_dir+f'/{obj}_convex_parts.obj')
 
     vs_list = [vs for vs, fs in result]
     filtered_vs_list = [vs[:, :2] for vs in vs_list] if mode == '3d' else [vs[vs[:, 0] < -0.1][:,1:] for vs in vs_list]
@@ -55,8 +55,8 @@ def decompose(mesh, output_dir, mode, threshold = 0.08):
         # pickle.dump(hulls, f)
     
 
-    # rgb_image = Image.open(obj_data_path+'_rgb.png')
-    # draw_hulls(rgb_image, hulls, output_dir, obj)
+    rgb_image = Image.open('data/'+obj+'_rgb.png')
+    draw_hulls(rgb_image, hulls, output_dir, obj)
     
     return hulls
     
