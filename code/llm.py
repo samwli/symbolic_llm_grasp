@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import os
-from code.keys import API_KEY, API_ORG
+from src.symbolic_llm_grasp.code.keys import API_KEY, API_ORG
 
 # openai.api_base = "http://localhost:23002/v1"
 def callOpenAI(api_key, model, query, organization=None):
@@ -50,8 +50,7 @@ def parse_likelihoods(response):
 def parse_graph_nodes(graph_text):
     nodes_str = re.search(r"Nodes of the graph:\s*(\[.*\])", graph_text).group(1)
     nodes = ast.literal_eval(nodes_str)
-    node_data = {node[0]: node[1]['centroid'] for node in nodes}
-
+    node_data = {node[0]: (node[1]['angle'],) + node[1]['centroid'] for node in nodes}
     return node_data
 
 def load_height(base_path):
@@ -96,20 +95,19 @@ def run_llm(graph_data, img, output_dir, obj_data_path, mode):
     vis_file_path = output_dir+f"/llm_{input_obj}_grasp.png"
     # img = cv2.imread(output_dir+f"/{input_obj}_graph_shapes.png")
     most_likely_node = list(node_data.keys())[most_likely_index.item()]
-    center = node_data[most_likely_node]
-    cv2.circle(img, center, radius=5, color=(0, 0, 255), thickness=-1)
+    grasp_pose = node_data[most_likely_node]
+    cv2.circle(img, grasp_pose[1:], radius=5, color=(0, 0, 255), thickness=-1)
     cv2.imwrite(vis_file_path, img)
 
-    if mode == '3d':
-        height_array = load_height(obj_data_path+'_depth')
-        center = np.append(center, height_array[center[1], center[0]])
+    height_array = load_height(obj_data_path+'_depth')
+    grasp_pose = np.append(grasp_pose, height_array[grasp_pose[2], grasp_pose[1]])
     
-    print(f"Predicted Node: {most_likely_node}, Centroid: {center}")
+    print(f"Predicted Node: {most_likely_node}, Angle: {grasp_pose[0]}, Centroid: {grasp_pose[1:]}")
 
     output_file_path = output_dir+f"/llm_{input_obj}_results.txt"
     with open(output_file_path, 'w') as file:
         file.write("Response:\n" + response)
         file.write("\nLikelihoods:\n" + str(likelihoods.tolist()))
-        file.write(f"\nPredicted Node: {most_likely_node}, Centroid: {center}\n")
+        file.write(f"\nPredicted Node: {most_likely_node}, Angle: {grasp_pose[0]}, Centroid: {grasp_pose[1:]}\n")
         
-    return center
+    return grasp_pose, img

@@ -55,7 +55,7 @@ def decompose(mesh, output_dir, mode, threshold = 0.08):
         # pickle.dump(hulls, f)
     
 
-    rgb_image = Image.open('data/'+obj+'_rgb.png')
+    rgb_image = Image.open('images/'+obj+'_rgb.png')
     draw_hulls(rgb_image, hulls, output_dir, obj)
     
     return hulls

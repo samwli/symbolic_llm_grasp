@@ -2,10 +2,10 @@ import os
 import argparse
 import datetime
 import numpy as np
-from code.mesh import create_solid_mesh
-from code.decompose import decompose
-from code.graph import create_graph
-from code.llm import run_llm
+from src.symbolic_llm_grasp.code.mesh import create_solid_mesh
+from src.symbolic_llm_grasp.code.decompose import decompose
+from src.symbolic_llm_grasp.code.graph import create_graph
+from src.symbolic_llm_grasp.code.llm import run_llm
 
 def create_output_directory(obj, mode):
     current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -27,7 +27,8 @@ def run_pipeline(obj, data_dir, mode, threshold):
         threshold = max(threshold - 0.05, 0.01)
         hulls = decompose(mesh, output_dir, mode, threshold)
     graph, shapes = create_graph(hulls, output_dir, obj_data_path, mode)
-    grasp_point = np.array(run_llm(graph, shapes, output_dir, obj_data_path, mode))
+    grasp_point, img = run_llm(graph, shapes, output_dir, obj_data_path, mode)
+    return grasp_point, img
     # TODO: grasp at this point
 
 if __name__ == "__main__":

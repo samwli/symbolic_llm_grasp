@@ -99,7 +99,7 @@ def approximate_shape(hull, convex_hull):
         (x, y), radius = cv2.minEnclosingCircle(hull)
         return "circle", ((x, y), radius)
     
-    epsilon = 0.01 * cv2.arcLength(hull, True)
+    epsilon = 0.05 * cv2.arcLength(hull, True)
     approx = cv2.approxPolyDP(hull, epsilon, True)
     
     if len(approx) == 3:
@@ -322,9 +322,9 @@ def create_graph(hulls, output_dir, obj_data_path, mode):
             color = get_color(hull, rgb_img, binary_mask)
             if mode == '3d':
                 height = get_height(hull, height_img, binary_mask)
-                G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), height=int(height), color=color)
+                G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), angle = int(0), height=int(height), color=color)
             else:
-                G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), color=color)
+                G.add_node('circ{}'.format(idx), shape=shape, centroid=(int(cx), int(cy)), area=int(hull.volume), angle = int(0), color=color)
                 
     node_names = list(G.nodes)
     for i in range(len(hulls)):

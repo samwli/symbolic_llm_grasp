@@ -10,9 +10,8 @@ from scipy import ndimage
 def replace_noisy_patches(image):
     # Convert the image to a numpy array if it's not already
     img_array = np.array(image)
-
     # Identify pixels with value 255
-    mask = img_array == 255
+    mask = (img_array > 760.0) | (img_array == 0.0)
     if mask.sum() == 0:
         return img_array
     # Create an array with NaN where the pixels are 255 and same values everywhere else
@@ -20,7 +19,7 @@ def replace_noisy_patches(image):
     img_with_nans[mask] = np.nan
 
     # Try to interpolate the NaN values
-    filled_image = ndimage.generic_filter(img_with_nans, lambda x: np.nanmean(x), size=15)
+    filled_image = ndimage.generic_filter(img_with_nans, lambda x: np.nanmean(x), size=50)
 
     # Handle any remaining NaNs (if any) after interpolation
     filled_image = np.nan_to_num(filled_image, nan=np.nanmean(img_with_nans))
@@ -31,9 +30,9 @@ def replace_noisy_patches(image):
     return img_array
 
 def load_height(base_path, mask):
-    if os.path.exists(base_path + '.npy'):
-        data = np.load(base_path + '.npy')
-    elif os.path.exists(base_path + '.png'):
+    # if os.path.exists(base_path + '.npy'):
+    #     data = np.load(base_path + '.npy')
+    if os.path.exists(base_path + '.png'):
         image = cv2.imread(base_path + '.png')
         data = np.array(image)
     else:
@@ -41,7 +40,6 @@ def load_height(base_path, mask):
     data = data.astype(float)
     if len(data.shape) > 2:
         data = data[:, :, 0]
-        
     # data = cv2.medianBlur(data, 5)
     # data = cv2.GaussianBlur(data, (5, 5), 0)
     neg_indices = np.argwhere(mask == 0)
@@ -49,7 +47,8 @@ def load_height(base_path, mask):
         data[i, j] = np.nan
     indices = np.argwhere(mask == 1)
     max_height = np.max([data[i, j] for i, j in indices])
-    data = replace_noisy_patches(max_height-data)
+    data = max_height-data
+    data = replace_noisy_patches(data)
     return data
 
 def load_mask(base_path):
@@ -69,9 +68,9 @@ def load_mask(base_path):
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     largest_contour = max(contours, key=cv2.contourArea)
-    mask_largest_contour = np.zeros_like(mask)
-    cv2.drawContours(mask_largest_contour, [largest_contour], -1, color=255, thickness=cv2.FILLED)
-    return np.where(mask_largest_contour > 0, 1, 0)
+    mask = np.zeros_like(mask)
+    cv2.drawContours(mask, [largest_contour], -1, color=255, thickness=cv2.FILLED)
+    return np.where(mask > 0, 1, 0)
 
 
 def create_solid_mesh(obj_data_path, mesh_file, mode):
