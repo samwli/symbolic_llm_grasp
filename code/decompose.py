@@ -4,6 +4,8 @@ import trimesh
 from scipy.spatial import ConvexHull
 from PIL import Image, ImageDraw
 import pickle
+from code.load_data import load_mask
+import cv2
 
 def draw_hulls(img, hulls, output_dir, obj):
     if img.mode == 'L':
@@ -13,11 +15,10 @@ def draw_hulls(img, hulls, output_dir, obj):
     for hull in hulls:
         for simplex in hull.simplices:
             points = [tuple(hull.points[i]) for i in simplex]
-            draw.line(points, fill='red', width=2)
+            draw.line(points, fill='red', width=8)
     img.save(output_dir+f'/{obj}_2d_hulls.png')   
 
-
-def decompose(mesh, output_dir, mode, threshold = 0.08):
+def decompose(mesh, output_dir, mode, data_dir, threshold = 0.08,):
     # mesh = trimesh.load(output_dir+f'/{obj}_solid_mesh.obj', force="mesh")
     coacd.set_log_level("error")
     mesh = coacd.Mesh(mesh.vertices, mesh.faces)
@@ -35,7 +36,7 @@ def decompose(mesh, output_dir, mode, threshold = 0.08):
         p.visual.vertex_colors[:, :3] = (np.random.rand(3) * 255).astype(np.uint8)
         scene.add_geometry(p)
         
-    obj = output_dir.split('/')[1].split('_'+mode)[0]
+    obj = output_dir.split('/')[1].split('_'+mode)[0][:-1]
     scene.export(output_dir+f'/{obj}_convex_parts.obj')
 
     vs_list = [vs for vs, fs in result]
@@ -51,11 +52,20 @@ def decompose(mesh, output_dir, mode, threshold = 0.08):
             hull = ConvexHull(array_2d)
             hulls.append(hull)
 
-    # with open(output_dir+f'/{obj}_2d_hulls.pkl', 'wb') as f:
-        # pickle.dump(hulls, f)
-    
+    with open(output_dir+f'/{obj}_2d_hulls.pkl', 'wb') as f:
+        pickle.dump(hulls, f)
+        
+    rgb_image = Image.open(data_dir+'/'+obj+'_rgb.png')
+    rgb_image_np = np.array(rgb_image)  # Convert the PIL Image to a NumPy array
+    mask = load_mask(data_dir+'/'+obj+'_mask')
+    mask = mask.astype(bool)
 
-    rgb_image = Image.open('images/'+obj+'_rgb.png')
+    # Apply the mask to the image
+    masked_image_np = cv2.bitwise_and(rgb_image_np, rgb_image_np, mask=mask.astype(np.uint8)*255)
+
+    # Convert the masked image back to a PIL Image
+    rgb_image = Image.fromarray(masked_image_np)
+    # cv2.imwrite('corkscrew_masked.png', cv2.cvtColor(masked_image_np, cv2.COLOR_RGB2BGR))
     draw_hulls(rgb_image, hulls, output_dir, obj)
     
     return hulls
